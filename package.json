@@ -1,0 +1,23 @@
+{
+    "scripts": {
+        "build": "webpack",
+        "start": "webpack serve --open"
+    },
+    "name": "hack_game",
+    "version": "1.0.0",
+    "main": "webpack.config.js",
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "description": "",
+    "devDependencies": {
+        "dotenv-webpack": "^8.1.0",
+        "phaser": "^3.87.0",
+        "webpack": "^5.97.1",
+        "webpack-cli": "^6.0.1",
+        "webpack-dev-server": "^5.2.0"
+    },
+    "dependencies": {
+        "openai": "^4.77.0"
+    }
+}

@@ -503,36 +503,19 @@ export default class GameScene extends Phaser.Scene {
 
     answerQuestion(answer, question, patient, elements) {
         const correct = answer === question.correctAnswer;
+        const cost = question.reward * this.level;
         
-        if (!correct) {
-            this.wrongAnswers++;
-            if (this.wrongAnswers >= this.maxWrongAnswers) {
-                elements.forEach(element => element.destroy());
-                this.gameOver('Too Many Wrong Answers!');
-                return;
-            }
-        }
+        // Clean up dialog elements first
+        elements.forEach(element => element.destroy());
         
-        // Check budget next
-        if (correct && this.spentBudget + question.reward * this.level > this.trialBudget) {
-            // Clean up elements
-            elements.forEach(element => {
-                if (element && element.destroy) {
-                    element.destroy();
-                }
-            });
-            
-            // Call gameOver for budget exceeded
-            this.gameOver('Budget Exceeded!');
-            return;
-        }
+        // Show feedback popup
+        const feedbackContainer = this.add.container(600, 300);
+        feedbackContainer.setDepth(1000);
+
+        const feedbackBg = this.add.rectangle(0, 0, 400, 150, 0x2c3e50, 0.9)
+            .setStrokeStyle(4, correct ? 0x2ecc71 : 0xe74c3c);
         
-        // Show feedback message
-        const feedbackMessage = this.add.container(400, 300);
-        const messageBg = this.add.rectangle(0, 0, 400, 150, 0x2c3e50, 0.9)
-            .setStrokeStyle(4, correct ? 0x27ae60 : 0xc0392b);
-        
-        const messageText = this.add.text(0, -20, 
+        const feedbackTitle = this.add.text(0, -30, 
             correct ? 'Patient Successfully Recruited!' : 'Patient Not Eligible', {
             fontSize: '28px',
             fill: '#fff',
@@ -540,9 +523,9 @@ export default class GameScene extends Phaser.Scene {
             fontWeight: 'bold'
         }).setOrigin(0.5);
 
-        const detailText = this.add.text(0, 20, 
+        const feedbackDetails = this.add.text(0, 20, 
             correct ? 
-            `+${question.reward * this.level} points\nSatisfaction +5%` : 
+            `+${cost} points\nSatisfaction +5%` : 
             'Satisfaction -10%\nTry another patient', {
             fontSize: '20px',
             fill: '#fff',
@@ -550,74 +533,70 @@ export default class GameScene extends Phaser.Scene {
             align: 'center'
         }).setOrigin(0.5);
 
-        feedbackMessage.add([messageBg, messageText, detailText]);
-        feedbackMessage.setAlpha(0);
+        feedbackContainer.add([feedbackBg, feedbackTitle, feedbackDetails]);
+        feedbackContainer.setAlpha(0);
 
-        // Animate feedback message
+        // Animate feedback popup
         this.tweens.add({
-            targets: feedbackMessage,
+            targets: feedbackContainer,
             alpha: 1,
             y: 250,
             duration: 500,
             ease: 'Back.out',
             onComplete: () => {
-                // After showing feedback, handle the answer
-                if (correct) {
-                    this.score += question.reward * this.level;
-                    this.correctSound.play();
-                    this.patientSatisfaction = Math.min(100, this.patientSatisfaction + 5);
-                    this.spentBudget += question.reward * this.level;
-                    this.recruitedPatients++;
-                    
-                    // Check for trial completion
-                    if (this.recruitedPatients >= this.selectedTrial.requiredParticipants) {
-                        this.trialComplete();
-                        return;
-                    }
-                    
-                    // Remove and replace patient
-                    if (patient && patient.destroy) {
-                        patient.destroy();
-                        this.patients = this.patients.filter(p => p !== patient);
-                        this.createPatient();
-                    }
-                } else {
-                    this.wrongSound.play();
-                    this.patientSatisfaction = Math.max(0, this.patientSatisfaction - 10);
-                }
-
-                // Level up every 1000 points
-                if (this.score >= this.level * 1000) {
-                    this.levelUp();
-                }
-
-                // Clean up dialog elements
-                if (elements && Array.isArray(elements)) {
-                    elements.forEach(element => {
-                        if (element && element.destroy) {
-                            element.destroy();
-                        }
-                    });
-                }
-
-                // Clean up feedback message after delay
+                // Remove feedback after delay
                 this.time.delayedCall(1500, () => {
                     this.tweens.add({
-                        targets: feedbackMessage,
+                        targets: feedbackContainer,
                         alpha: 0,
                         y: 200,
                         duration: 300,
-                        onComplete: () => {
-                            if (feedbackMessage && feedbackMessage.destroy) {
-                                feedbackMessage.destroy();
-                            }
-                        }
+                        onComplete: () => feedbackContainer.destroy()
                     });
                 });
-
-                this.updateUI();
             }
         });
+        
+        if (!correct) {
+            this.wrongAnswers++;
+            this.wrongSound.play();
+            this.patientSatisfaction = Math.max(0, this.patientSatisfaction - 10);
+            
+            if (this.wrongAnswers >= this.maxWrongAnswers) {
+                this.children.list.forEach(child => {
+                    if (child.type === 'Container' && child !== this.uiContainer) {
+                        child.destroy();
+                    }
+                });
+                this.gameOver('Too Many Wrong Answers!');
+                return;
+            }
+        } else {
+            this.recruitedPatients++;
+            this.spentBudget += cost;
+            this.score += cost;
+            this.correctSound.play();
+            this.patientSatisfaction = Math.min(100, this.patientSatisfaction + 5);
+            
+            patient.destroy();
+            this.patients = this.patients.filter(p => p !== patient);
+            
+            if (this.recruitedPatients >= this.selectedTrial.requiredParticipants) {
+                this.children.list.forEach(child => {
+                    if (child.type === 'Container' && child !== this.uiContainer) {
+                        child.destroy();
+                    }
+                });
+                this.trialComplete();
+                return;
+            }
+            
+            if (this.patients.length < 5) {
+                this.createPatient();
+            }
+        }
+
+        this.updateUI();
     }
 
     updateTimer() {
@@ -901,139 +880,113 @@ export default class GameScene extends Phaser.Scene {
     }
 
     trialComplete() {
-        this.scene.pause();
+        // Stop game activity but don't pause the scene
+        this.input.enabled = false;
         
         // Create overlay and panel
-        const overlay = this.add.rectangle(600, 400, 1200, 800, 0x000000, 0.8);
-        const panel = this.add.container(600, 400);
+        const overlay = this.add.rectangle(0, 0, 1200, 800, 0x000000, 0.8);
+        overlay.setOrigin(0, 0);
+        overlay.setDepth(1000);
 
-        // Background with success styling
-        const bg = this.add.rectangle(0, 0, 600, 400, 0x2c3e50);
-        bg.setStrokeStyle(4, 0x2ecc71);
+        // Create success panel
+        const panel = this.add.container(600, 400);
+        panel.setDepth(1001);
 
         // Victory text
-        const resultText = this.add.text(0, -150, 'YOU WIN!', {
+        const resultText = this.add.text(600, 200, 'YOU WIN!', {
             fontSize: '64px',
             fill: '#2ecc71',
             fontFamily: 'Arial',
             fontWeight: 'bold'
-        }).setOrigin(0.5);
+        }).setOrigin(0.5).setDepth(1001);
 
         // Congratulations text
-        const congratsText = this.add.text(0, -80, 'Trial Successfully Completed!', {
+        const congratsText = this.add.text(600, 280, 'Trial Successfully Completed!', {
             fontSize: '32px',
             fill: '#fff',
             fontFamily: 'Arial',
             fontWeight: 'bold'
-        }).setOrigin(0.5);
+        }).setOrigin(0.5).setDepth(1001);
 
-        // Stats section
-        const statsTitle = this.add.text(0, -20, 'Final Results:', {
-            fontSize: '28px',
-            fill: '#3498db',
-            fontFamily: 'Arial',
-            fontWeight: 'bold'
-        }).setOrigin(0.5);
-
-        const statsText = this.add.text(0, 30, [
+        // Stats
+        const stats = [
             `Participants Recruited: ${this.recruitedPatients}/${this.selectedTrial.requiredParticipants}`,
             `Budget Spent: ${this.spentBudget}/${this.trialBudget}`,
             `Patient Satisfaction: ${this.patientSatisfaction}%`,
             `Wrong Decisions: ${this.wrongAnswers}`,
             `Final Score: ${this.score}`
-        ].join('\n'), {
+        ].join('\n');
+
+        const statsText = this.add.text(600, 380, stats, {
             fontSize: '24px',
             fill: '#fff',
             fontFamily: 'Arial',
             align: 'center'
+        }).setOrigin(0.5).setDepth(1001);
+
+        // Create restart button with container for better interaction
+        const buttonContainer = this.add.container(600, 500);
+        buttonContainer.setDepth(1001);
+
+        const buttonBg = this.add.rectangle(0, 0, 200, 60, 0x27ae60)
+            .setInteractive()
+            .setOrigin(0.5);
+
+        const buttonText = this.add.text(0, 0, 'Start New Trial', {
+            fontSize: '24px',
+            fill: '#fff',
+            fontFamily: 'Arial'
         }).setOrigin(0.5);
 
-        // Create new trial button
-        const newTrialBtn = this.createButton(0, 120, 'Start New Trial', 0x27ae60, () => {
-            if (this.particles) {
-                this.particles.destroy();
-            }
-            this.scene.start('TrialSelectionScene');
+        buttonContainer.add([buttonBg, buttonText]);
+
+        // Button interaction
+        buttonBg.on('pointerover', () => {
+            buttonContainer.setScale(1.1);
         });
 
-        // Add all elements to panel
-        panel.add([bg, resultText, congratsText, statsTitle, statsText, newTrialBtn]);
-        
-        // Initial scale
-        panel.setScale(0);
+        buttonBg.on('pointerout', () => {
+            buttonContainer.setScale(1);
+        });
 
-        // Create celebration particles
-        this.particles = this.add.particles();
+        buttonBg.on('pointerdown', () => {
+            // Disable further input
+            this.input.enabled = false;
+            
+            // Fade out effect
+            this.cameras.main.fadeOut(300, 0, 0, 0);
+            
+            this.cameras.main.once('camerafadeoutcomplete', () => {
+                // Clean up current scene
+                this.scene.stop();
+                // Start trial selection scene
+                this.scene.start('TrialSelectionScene');
+            });
+        });
+
+        // Add celebration particles
+        const particles = this.add.particles();
+        particles.setDepth(1002);
         
-        // Left side particles
-        this.particles.emit({
+        // Emit particles
+        particles.emit({
             frame: 'particle',
-            x: { min: 200, max: 400 },
+            x: { min: 0, max: 1200 },
             y: 800,
+            lifespan: 3000,
             speedY: { min: -300, max: -500 },
             speedX: { min: -50, max: 50 },
-            lifespan: 2000,
             scale: { start: 0.2, end: 0 },
-            quantity: 1,
-            frequency: 100,
+            quantity: 5,
+            frequency: 50,
             blendMode: 'ADD',
-            tint: [ 0x2ecc71, 0x3498db ]
-        });
-
-        // Right side particles
-        this.particles.emit({
-            frame: 'particle',
-            x: { min: 800, max: 1000 },
-            y: 800,
-            speedY: { min: -300, max: -500 },
-            speedX: { min: -50, max: 50 },
-            lifespan: 2000,
-            scale: { start: 0.2, end: 0 },
-            quantity: 1,
-            frequency: 100,
-            blendMode: 'ADD',
-            tint: [ 0x3498db, 0xf1c40f ]
-        });
-
-        // Middle particles
-        this.particles.emit({
-            frame: 'particle',
-            x: { min: 500, max: 700 },
-            y: 800,
-            speedY: { min: -400, max: -600 },
-            speedX: { min: -50, max: 50 },
-            lifespan: 2000,
-            scale: { start: 0.2, end: 0 },
-            quantity: 1,
-            frequency: 100,
-            blendMode: 'ADD',
-            tint: [ 0xf1c40f, 0x2ecc71 ]
-        });
-
-        // Animate panel entrance
-        this.tweens.add({
-            targets: panel,
-            scaleX: 1,
-            scaleY: 1,
-            duration: 500,
-            ease: 'Back.out',
-            onComplete: () => {
-                // Add floating animation to panel
-                this.tweens.add({
-                    targets: panel,
-                    y: panel.y + 10,
-                    duration: 1500,
-                    yoyo: true,
-                    repeat: -1,
-                    ease: 'Sine.inOut'
-                });
-            }
+            tint: [ 0x2ecc71, 0x3498db, 0xf1c40f ]
         });
 
         // Clean up particles after delay
         this.time.delayedCall(5000, () => {
-            if (this.particles) {
-                this.particles.destroy();
+            if (particles) {
+                particles.destroy();
             }
         });
     }

@@ -27,8 +27,8 @@ export default class RoleSelectionScene extends Phaser.Scene {
 
         // Create scientist role card
         const scientistCard = this.createRoleCard(800, 400, 'Scientist',
-            'Analyze data to advance medicine\nUnlock new research discoveries',
-            0x8e44ad, 0x2980b9, 'AnalyticsScene'
+            'Design innovative clinical trials\nAnalyze data to advance medicine\nUnlock new research discoveries',
+            0x8e44ad, 0x2980b9, 'ResearchSelectionScene'
         );
 
         // Entrance animations for both cards
@@ -87,11 +87,11 @@ export default class RoleSelectionScene extends Phaser.Scene {
         const startBtn = this.add.container(0, 200);
         const btnBg = this.add.rectangle(0, 0, 250, 60, buttonColor)
             .setInteractive();
-            const btnText = this.add.text(0, 0, role === 'Scientist' ? 'Analyze Data' : 'Start Game', {
-                fontSize: '32px',
-                fill: '#fff',
-                fontFamily: 'Arial'
-            }).setOrigin(0.5);            
+        const btnText = this.add.text(0, 0, 'Start Game', {
+            fontSize: '32px',
+            fill: '#fff',
+            fontFamily: 'Arial'
+        }).setOrigin(0.5);
 
         startBtn.add([btnBg, btnText]);
 
@@ -120,7 +120,7 @@ export default class RoleSelectionScene extends Phaser.Scene {
                 duration: 300,
                 ease: 'Back.in',
                 onComplete: () => {
-                    this.scene.start(nextScene); // Move to next scene
+                    this.scene.start(nextScene);
                 }
             });
         });

@@ -19,8 +19,8 @@ export default class RoleSelectionScene extends Phaser.Scene {
             fontWeight: 'bold'
         }).setOrigin(0.5);
 
-        // Create doctor role card - centered in new viewport
-        const doctorCard = this.add.container(600, 400);
+        // Adjust doctor card position to the left
+        const doctorCard = this.add.container(400, 400);
         
         // Card background - made larger
         const cardBg = this.add.rectangle(0, 0, 400, 500, 0x34495e)
@@ -124,6 +124,112 @@ export default class RoleSelectionScene extends Phaser.Scene {
             scaleY: 1,
             duration: 500,
             ease: 'Back.out'
+        });
+
+        // Create patient volunteer card
+        const patientCard = this.add.container(800, 400);
+        
+        // Card background
+        const patientCardBg = this.add.rectangle(0, 0, 400, 500, 0x34495e)
+            .setInteractive()
+            .setStrokeStyle(4, 0x3498db);
+
+        // Patient volunteer icon
+        const patientGraphics = this.add.graphics();
+        patientGraphics.fillStyle(0xffffff);
+        patientGraphics.fillRect(-24, -36, 48, 72);
+        patientGraphics.fillStyle(0xffdbac);
+        patientGraphics.fillCircle(0, -45, 12);
+        patientGraphics.lineStyle(2, 0x4a4a4a);
+        patientGraphics.strokeCircle(0, -45, 12);
+
+        // Role title
+        const patientRoleTitle = this.add.text(0, 80, 'Patient Volunteer', {
+            fontSize: '48px',
+            fill: '#fff',
+            fontFamily: 'Arial',
+            fontWeight: 'bold'
+        }).setOrigin(0.5);
+
+        // Role description
+        const patientDescription = this.add.text(0, 160, 
+            'Participate in clinical trials\nTrack your health progress\nEarn rewards for participation', {
+            fontSize: '24px',
+            fill: '#fff',
+            fontFamily: 'Arial',
+            align: 'center',
+            lineSpacing: 15
+        }).setOrigin(0.5);
+
+        // Start button
+        const patientStartBtn = this.add.container(0, 300);
+        const patientBtnBg = this.add.rectangle(0, 0, 250, 60, 0x27ae60)
+            .setInteractive();
+        const patientBtnText = this.add.text(0, 0, 'Start Game', {
+            fontSize: '32px',
+            fill: '#fff',
+            fontFamily: 'Arial'
+        }).setOrigin(0.5);
+
+        patientStartBtn.add([patientBtnBg, patientBtnText]);
+
+        // Add all elements to the patient card
+        patientCard.add([patientCardBg, patientGraphics, patientRoleTitle, patientDescription, patientStartBtn]);
+
+        // Add hover effects for patient card
+        patientBtnBg.on('pointerover', () => {
+            this.tweens.add({
+                targets: patientStartBtn,
+                scaleX: 1.1,
+                scaleY: 1.1,
+                duration: 100
+            });
+        }).on('pointerout', () => {
+            this.tweens.add({
+                targets: patientStartBtn,
+                scaleX: 1,
+                scaleY: 1,
+                duration: 100
+            });
+        });
+
+        patientCardBg.on('pointerover', () => {
+            this.tweens.add({
+                targets: patientCard,
+                y: 390,
+                duration: 200
+            });
+        }).on('pointerout', () => {
+            this.tweens.add({
+                targets: patientCard,
+                y: 400,
+                duration: 200
+            });
+        });
+
+        // Start game on patient button click
+        patientBtnBg.on('pointerdown', () => {
+            this.tweens.add({
+                targets: patientCard,
+                scaleX: 0,
+                scaleY: 0,
+                duration: 300,
+                ease: 'Back.in',
+                onComplete: () => {
+                    this.scene.start('PatientTrialScene'); // Create this scene later
+                }
+            });
+        });
+
+        // Entrance animation for patient card
+        patientCard.setScale(0);
+        this.tweens.add({
+            targets: patientCard,
+            scaleX: 1,
+            scaleY: 1,
+            duration: 500,
+            ease: 'Back.out',
+            delay: 100 // Slight delay after doctor card
         });
     }
 } 

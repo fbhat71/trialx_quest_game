@@ -264,7 +264,7 @@ export default class PatientTrialScene extends Phaser.Scene {
                 break;
             case 'gender':
                 this.patientData.gender = value;
-                this.scene.start('PatientDiagnosticGame', { patientData: this.patientData });
+                this.scene.start('PatientEligibilityGame', { patientData: this.patientData });
                 return;
             case 'disease':
                 this.patientData.disease = value;
